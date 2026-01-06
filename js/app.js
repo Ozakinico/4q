@@ -24,11 +24,11 @@ const els = {
   cMsg: $("#cMsg"),
 };
 
-// スプシCMS
+// スプシCMS（GET）
 const CMS_ENDPOINT =
   "https://script.google.com/macros/s/AKfycbxLz1LpxwXFismtcVrq5cbTk48KBhdb3OIc-c9bkCzAkUy1kxtT62qT7uegdu5fisQ_/exec?type=projects";
 
-// Contact通知
+// Contact通知（POST）
 const CONTACT_ENDPOINT =
   "https://script.google.com/macros/s/AKfycbxLz1LpxwXFismtcVrq5cbTk48KBhdb3OIc-c9bkCzAkUy1kxtT62qT7uegdu5fisQ_/exec";
 
@@ -58,11 +58,8 @@ function initTheme() {
   else setTheme(prefersLight ? "day" : "night");
 }
 
-const GAS_PROJECTS_API =
-  "https://script.google.com/macros/s/AKfycbxLz1LpxwXFismtcVrq5cbTk48KBhdb3OIc-c9bkCzAkUy1kxtT62qT7uegdu5fisQ_/exec?type=projects";
-
 async function loadProjects() {
-  const res = await fetch(GAS_PROJECTS_API, { cache: "no-store" });
+  const res = await fetch(CMS_ENDPOINT, { cache: "no-store" });
   if (!res.ok) throw new Error("GAS CMS の読み込みに失敗しました");
 
   const data = await res.json();
@@ -71,8 +68,6 @@ async function loadProjects() {
   }
   return Array.isArray(data.items) ? data.items : [];
 }
-
-
 
 function getURLState() {
   const u = new URL(location.href);
@@ -110,7 +105,7 @@ function renderFilters(tags) {
   }).join("");
 }
 
-//projectはslugでページ遷移
+// projectはslugでページ遷移
 function projectHref(p) {
   const u = new URL(location.href);
   const from = u.searchParams.toString(); // 戻り用
@@ -237,7 +232,27 @@ function bindUI() {
   });
 
   // ===== Contact（GAS通知 + mailto fallback） =====
-  els.contactForm.addEventListener("submit", async (e) => {
+  // GitHub Pages だと fetch(POST) が CORS で落ちるので、hidden iframe へ通常送信する
+
+  const GAS_TARGET = "gasSink"; // index.html に <iframe name="gasSink" ...> が必要
+
+  // action/method/target をフォームに反映（HTML側に書いてあってもOK）
+  els.contactForm.setAttribute("action", CONTACT_ENDPOINT);
+  els.contactForm.setAttribute("method", "POST");
+  els.contactForm.setAttribute("target", GAS_TARGET);
+
+  function upsertHidden(form, name, value) {
+    let el = form.querySelector(`input[type="hidden"][name="${CSS.escape(name)}"]`);
+    if (!el) {
+      el = document.createElement("input");
+      el.type = "hidden";
+      el.name = name;
+      form.appendChild(el);
+    }
+    el.value = String(value ?? "");
+  }
+
+  els.contactForm.addEventListener("submit", (e) => {
     e.preventDefault();
     els.formNote.textContent = "";
 
@@ -250,35 +265,39 @@ function bindUI() {
       return;
     }
 
-    const payload = new URLSearchParams({
-      name,
-      email,
-      message,
-      pageUrl: location.href,
-      ua: navigator.userAgent,
-    });
+    // hidden input に値を詰める（GAS はこれを受け取る）
+    upsertHidden(els.contactForm, "name", name);
+    upsertHidden(els.contactForm, "email", email);
+    upsertHidden(els.contactForm, "message", message);
+    upsertHidden(els.contactForm, "pageUrl", location.href);
+    upsertHidden(els.contactForm, "ua", navigator.userAgent);
 
     const submitBtn = els.contactForm.querySelector('button[type="submit"]');
-    const prevText = submitBtn.textContent;
-    submitBtn.disabled = true;
-    submitBtn.textContent = "送信中…";
+    const prevText = submitBtn?.textContent || "";
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "送信中…";
+    }
 
     try {
-      await fetch(CONTACT_ENDPOINT, {
-        method: "POST",
-        body: payload, // headersを書かない
-      });
+      // CORSの影響を受けない送信
+      els.contactForm.submit();
 
+      // UX：即時で完了表示（実配送はGAS側のログ/メールで確認）
       els.formNote.textContent = "送信を受け付けました。ありがとうございました。";
       els.contactForm.reset();
-      updateMailto(); // リセット後に mailto も更新
+      updateMailto();
 
     } catch (err) {
       console.error(err);
       els.formNote.textContent = "送信に失敗しました。メール送信（mailto）をご利用ください。";
     } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = prevText;
+      setTimeout(() => {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = prevText;
+        }
+      }, 800);
     }
   });
 
