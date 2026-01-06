@@ -30,7 +30,7 @@ const CMS_ENDPOINT =
 
 // Contact通知（POST）
 const CONTACT_ENDPOINT =
-  "https://script.google.com/macros/s/AKfycbxLz1LpxwXFismtcVrq5cbTk48KBhdb3OIc-c9bkCzAkUy1kxtT62qT7uegdu5fisQ_/exec";
+  "https://script.google.com/macros/s/AKfycbyW-OpaUAyVg6I8ySSKi_QYPj97Jx8DXmpg7DKqrv_xXdoSowp0MbWWuOemivc_1BZxPg/exec";
 
 const STATE = {
   projects: [],
