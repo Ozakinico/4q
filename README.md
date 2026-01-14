@@ -1,6 +1,4 @@
-# School Projects Portfolio (Static)
 
-学校で取り組んだプロジェクト（Hanabi / まるごと祭 / Podcast部 / Vision Mash UP / TEDx Kamiyama）を整理したポートフォリオサイト。
 
 ## Features
 - Responsive (mobile / tablet / desktop)
